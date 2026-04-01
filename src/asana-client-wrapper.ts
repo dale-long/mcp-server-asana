@@ -1,4 +1,7 @@
 import Asana from 'asana';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as https from 'https';
 
 export class AsanaClientWrapper {
   private workspaces: any;
@@ -10,6 +13,7 @@ export class AsanaClientWrapper {
   private customFieldSettings: any;
   private sections: any;
   private userTaskLists: any;
+  private attachments: any;
 
   constructor(token: string) {
     const client = Asana.ApiClient.instance;
@@ -25,6 +29,7 @@ export class AsanaClientWrapper {
     this.customFieldSettings = new Asana.CustomFieldSettingsApi();
     this.sections = new Asana.SectionsApi();
     this.userTaskLists = new Asana.UserTaskListsApi();
+    this.attachments = new Asana.AttachmentsApi();
   }
 
   async listWorkspaces(opts: any = {}) {
@@ -499,6 +504,155 @@ export class AsanaClientWrapper {
     const options = opts.opt_fields ? opts : {};
     const body = { data };
     const response = await this.projects.updateProject(body, projectId, options);
+    return response.data;
+  }
+
+  async getAttachmentsForObject(parent: string, opts: any = {}) {
+    const response = await this.attachments.getAttachmentsForObject(parent, opts);
+    return response.data;
+  }
+
+  async getAttachment(attachmentGid: string, opts: any = {}) {
+    const response = await this.attachments.getAttachment(attachmentGid, opts);
+    return response.data;
+  }
+
+  async createAttachmentFromFile(parent: string, filePath: string, name?: string) {
+    const resolvedPath = path.resolve(filePath);
+    if (!fs.existsSync(resolvedPath)) {
+      throw new Error(`File not found: ${resolvedPath}`);
+    }
+
+    const fileName = name || path.basename(resolvedPath);
+    const token = (Asana.ApiClient.instance as any).authentications['token'].accessToken;
+
+    // Bypass the SDK for file uploads — the SDK has a bug where it copies
+    // all opts into queryParams (line 61 of AttachmentsApi.js), causing
+    // "URI Too Long" when uploading files. We use the raw REST API instead.
+    return new Promise((resolve, reject) => {
+      const boundary = '----FormBoundary' + Math.random().toString(36).substring(2);
+      const fileContent = fs.readFileSync(resolvedPath);
+
+      const parts: Buffer[] = [];
+
+      // parent field
+      parts.push(Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="parent"\r\n\r\n${parent}\r\n`
+      ));
+
+      // resource_subtype field
+      parts.push(Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="resource_subtype"\r\n\r\nasana\r\n`
+      ));
+
+      // file field
+      parts.push(Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/octet-stream\r\n\r\n`
+      ));
+      parts.push(fileContent);
+      parts.push(Buffer.from('\r\n'));
+
+      // closing boundary
+      parts.push(Buffer.from(`--${boundary}--\r\n`));
+
+      const body = Buffer.concat(parts);
+
+      const options = {
+        hostname: 'app.asana.com',
+        path: '/api/1.0/attachments',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          'Content-Length': body.length,
+        },
+      };
+
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+              resolve(parsed.data || parsed);
+            } else {
+              reject(new Error(`Asana API error ${res.statusCode}: ${JSON.stringify(parsed)}`));
+            }
+          } catch (e) {
+            reject(new Error(`Failed to parse response: ${data}`));
+          }
+        });
+      });
+
+      req.on('error', reject);
+      req.write(body);
+      req.end();
+    });
+  }
+
+  async createAttachmentFromUrl(parent: string, url: string, name: string) {
+    // URL attachments don't have the file size issue, but the SDK still has
+    // the queryParams bug. Use the raw API for consistency.
+    const token = (Asana.ApiClient.instance as any).authentications['token'].accessToken;
+
+    return new Promise((resolve, reject) => {
+      const boundary = '----FormBoundary' + Math.random().toString(36).substring(2);
+
+      const parts: Buffer[] = [];
+
+      parts.push(Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="parent"\r\n\r\n${parent}\r\n`
+      ));
+      parts.push(Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="resource_subtype"\r\n\r\nexternal\r\n`
+      ));
+      parts.push(Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="url"\r\n\r\n${url}\r\n`
+      ));
+      parts.push(Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="name"\r\n\r\n${name}\r\n`
+      ));
+      parts.push(Buffer.from(`--${boundary}--\r\n`));
+
+      const body = Buffer.concat(parts);
+
+      const options = {
+        hostname: 'app.asana.com',
+        path: '/api/1.0/attachments',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          'Content-Length': body.length,
+        },
+      };
+
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+              resolve(parsed.data || parsed);
+            } else {
+              reject(new Error(`Asana API error ${res.statusCode}: ${JSON.stringify(parsed)}`));
+            }
+          } catch (e) {
+            reject(new Error(`Failed to parse response: ${data}`));
+          }
+        });
+      });
+
+      req.on('error', reject);
+      req.write(body);
+      req.end();
+    });
+  }
+
+  async deleteAttachment(attachmentGid: string) {
+    const response = await this.attachments.deleteAttachment(attachmentGid);
     return response.data;
   }
 }

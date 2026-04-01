@@ -57,6 +57,12 @@ import {
   getStoriesForTaskTool,
   createTaskStoryTool
 } from './tools/story-tools.js';
+import {
+  getAttachmentsForObjectTool,
+  getAttachmentTool,
+  createAttachmentTool,
+  deleteAttachmentTool
+} from './tools/attachment-tools.js';
 
 // List of all available tools
 const all_tools: Tool[] = [
@@ -101,6 +107,10 @@ const all_tools: Tool[] = [
   deleteSectionTool,
   addTaskToSectionTool,
   updateProjectTool,
+  getAttachmentsForObjectTool,
+  getAttachmentTool,
+  createAttachmentTool,
+  deleteAttachmentTool,
 ];
 
 // List of tools that only read Asana state
@@ -122,7 +132,9 @@ const READ_ONLY_TOOLS = [
   'asana_get_tags_for_task',
   'asana_get_tasks_for_tag',
   'asana_get_tags_for_workspace',
-  'asana_get_subtasks'
+  'asana_get_subtasks',
+  'asana_get_attachments_for_object',
+  'asana_get_attachment'
 ];
 
 // Filter tools based on READ_ONLY_MODE
@@ -688,6 +700,54 @@ export function tool_handler(asanaClient: AsanaClientWrapper): (request: CallToo
             }
             throw error;
           }
+        }
+
+        case "asana_get_attachments_for_object": {
+          const { parent, ...opts } = args;
+          const response = await asanaClient.getAttachmentsForObject(parent, opts);
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
+        case "asana_get_attachment": {
+          const { attachment_gid, ...opts } = args;
+          const response = await asanaClient.getAttachment(attachment_gid, opts);
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
+        case "asana_create_attachment": {
+          const { parent, file_path, url, name, resource_subtype } = args;
+
+          if (file_path && url) {
+            throw new Error("Provide either file_path or url, not both");
+          }
+          if (!file_path && !url) {
+            throw new Error("Either file_path or url must be provided");
+          }
+
+          let response;
+          if (file_path) {
+            response = await asanaClient.createAttachmentFromFile(parent, file_path, name);
+          } else {
+            if (!name) {
+              throw new Error("name is required when attaching a URL");
+            }
+            response = await asanaClient.createAttachmentFromUrl(parent, url, name);
+          }
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
+        case "asana_delete_attachment": {
+          const { attachment_gid } = args;
+          await asanaClient.deleteAttachment(attachment_gid);
+          return {
+            content: [{ type: "text", text: `Successfully deleted attachment ${attachment_gid}` }],
+          };
         }
 
         default:

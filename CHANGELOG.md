@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 2026-04-09-01 — Migrate mcp-server-asana to tcf/infra/
+**Category:** Ops
+**Why:** Consolidating TCF projects under ~/Documents/tcf/.
+**Impact:** Asana MCP server repo now at ~/Documents/tcf/infra/mcp-server-asana/.
 
 ## [1.8.0] - 2026-03-29
 

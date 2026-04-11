@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+> **Cascade enforcement**: This file is load-bearing. The `require-subproject-claude-md.sh` hook requires this file to be Read before edits to any file in this project can proceed (when launched from `~/Documents/tcf/`). One Read clears the gate for the whole session. See `~/Documents/tcf/CLAUDE.md` → "Session launch and cascade enforcement" for the full model.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Build and Development Commands

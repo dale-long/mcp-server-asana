@@ -492,6 +492,21 @@ Another example:
    
    Replace `<TOKEN>` with your Asana access token.
 
+   ### For Codex CLI:
+
+   Add the following to your `~/.codex/config.toml`:
+
+   ```toml
+   [mcp_servers.asana]
+   command = "npx"
+   args = [
+     "-y", "@roychri/mcp-server-asana"
+   ]
+   env = {ASANA_ACCESS_TOKEN= "<TOKEN>"}
+   ```
+
+   Replace `<TOKEN>` with your Asana access token.
+
 If you want to install the beta version (not yet released), you can use:
 
 * `@roychri/mcp-server-asana@beta`

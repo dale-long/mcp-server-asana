@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 2026-04-24-01 — Sync upstream README: Codex CLI configuration instructions
+**Category:** Ops
+**Why:** Upstream `roychri/mcp-server-asana` had diverged by three commits — all README additions documenting how to configure the Asana MCP server with OpenAI's Codex CLI alongside the existing Claude Desktop instructions — and keeping the fork current on upstream docs makes future merges smaller.
+**Impact:** Our fork's README now includes the Codex CLI configuration block (15 added lines); no functional changes to the server, and the fork's TCF-specific additions (CLAUDE.md cascade enforcement, attachment tools) remain intact.
+
 ## 2026-04-11-01 — Document cascade enforcement on CLAUDE.md
 **Category:** Ops
 **Why:** Part of the parent-launched TCF rollout; a new PreToolUse hook will block edits to subproject files until that subproject's CLAUDE.md has been Read in the session.
